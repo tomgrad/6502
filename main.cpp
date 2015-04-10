@@ -12,6 +12,18 @@ std::string h(unsigned short int x, unsigned int w = 2) {
 }
 
 typedef unsigned char byte;
+enum class addrType {
+  Immediate,
+  Absolute,
+  ZeroPage,
+  Indirect,
+  AbsoluteX,
+  AbsoluteY,
+  ZeroPageX,
+  ZeroPageY,
+  IndexedIndirect,
+  IndirectIndexed
+};
 
 class CPU {
   byte A; // registers
@@ -51,8 +63,6 @@ public:
     std::ifstream file(fn, std::ios::binary);
 
     char *ptr = (char *)(mem + addr);
-    //      while (file.good())
-    //      file >> *(ptr++);
     file.read(ptr, 255);
     file.close();
   }
@@ -64,32 +74,82 @@ public:
     }
   }
 
+  byte &addr(addrType type) {
+    switch (type) {
+    case addrType::Immediate:
+      return *(++PC);
+    case addrType::Absolute:
+      return mem[*(++PC) + *(++PC) * 0x0100];
+    case addrType::AbsoluteX:
+      return mem[*(++PC) + 0x100 * *(++PC) + X];
+    case addrType::AbsoluteY:
+      return mem[*(++PC) + 0x100 * *(++PC) + Y];
+    case addrType::ZeroPage:
+      return mem[*(++PC)];
+    case addrType::ZeroPageX:
+      return mem[*(++PC) + X];
+    case addrType::ZeroPageY:
+      return mem[*(++PC) + Y];
+    case addrType::Indirect:
+      return mem[mem[*(PC + 1)] + 0x0100 * mem[*(PC++ + 1) + 1]];
+    case addrType::IndexedIndirect:
+      return mem[mem[*(PC + 1) + X] + 0x0100 * mem[*(PC++ + 1) + X + 1]];
+    case addrType::IndirectIndexed:
+      return mem[mem[*(PC + 1)] + 0x0100 * mem[*(PC++ + 1) + 1] + Y];
+    }
+  }
+
   int processOpCode() {
     switch (*PC) {
-    // LDA
-    case 0xa9: // immediate
-      A = *(++PC);
+    // LDA - Load the Accumulator
+    case 0xa9:
+      A = addr(addrType::Immediate);
       break;
-    case 0xa1: // (indirect,X)
-      A = mem[mem[*(PC + 1) + X] + 0x0100 * mem[*(PC + 1) + X + 1]];
-      ++PC;
+    case 0xa1:
+      A = addr(addrType::IndexedIndirect);
       break;
-    case 0xb1: // (indirect),Y
-      A = mem[mem[*(PC + 1)] + 0x0100 * mem[*(PC + 1) + 1] + Y];
-      ++PC;
+    case 0xb1:
+      A = addr(addrType::IndirectIndexed);
       break;
 
-    case 0x69: // ADC
-      A += *(++PC);
+    // LDX - Load the X register
+    case 0xa2:
+      X = addr(addrType::Immediate);
       break;
+
+    // LDY - Load the Y register
+    case 0xa0:
+      Y = addr(addrType::Immediate);
+      break;
+
+    // STA - Store the Accumulator
+    case 0x85:
+      addr(addrType::ZeroPage) = A;
+      break;
+    case 0x99:
+      addr(addrType::AbsoluteY) = A;
+      break;
+    case 0x8d:
+      addr(addrType::Absolute) = A;
+      break;
+
+    // STX - Store the X register
+    case 0x8e:
+      addr(addrType::Absolute) = X;
+      break;
+
+    // STY - Store the Y register
+    case 0x8c:
+      addr(addrType::Absolute) = Y;
+      break;
+
+    // ADC
+    case 0x69:
+      A += addr(addrType::Immediate);
+      break;
+
     case 0x6c: // JMP (little endian)
       PC = mem + *(++PC) + *(++PC) * 0x0100 - 1;
-      break;
-    case 0xa0: // LDY
-      Y = *(++PC);
-      break;
-    case 0xa2: // LDX
-      X = *(++PC);
       break;
     case 0xaa: // TAX
       X = A;
@@ -98,41 +158,23 @@ public:
     case 0x8a: // TXA
       A = X;
       break;
-
-    case 0x85: // STA 0 page
-      mem[*(++PC)] = A;
-      break;
-    case 0x99: // STA absolute,Y
-      mem[*(++PC) + 0x100 * *(++PC) + Y] = A;
-      break;
-
-    case 0x8c: // STY
-      mem[*(++PC) + *(++PC) * 0x0100] = Y;
-      break;
-    case 0x8d: // STA
-      mem[*(++PC) + *(++PC) * 0x0100] = A;
-      break;
-    case 0x8e: // STX
-      mem[*(++PC) + *(++PC) * 0x0100] = X;
-      break;
     case 0xc9: // CMP
-      Z = A == *(++PC);
+      Z = A == addr(addrType::Immediate);
       break;
     case 0xca: // DEX
       --X;
       break;
     case 0xd0: // BNE
       if (!Z)
-        PC += *(PC + 1) < 127 ? *(PC + 1) : *(PC + 1) - 0xff;
+        PC += *(PC + 1) < 128 ? *(PC + 1) : *(PC + 1) - 0xff;
       else
         ++PC;
       break;
     case 0xe0: // CPX
-      Z = X == *(++PC);
+      Z = X == addr(addrType::Immediate);
       break;
-
     case 0xc0: // CPY
-      Z = Y == *(++PC);
+      Z = Y == addr(addrType::Immediate);
       break;
 
     case 0xe8: // INX
@@ -153,7 +195,8 @@ public:
     case 0x00: // BRK
       return 1;
     default:
-      std::cout << std::endl << h(*PC) << " not implemented\n";
+      std::cout << std::endl
+                << h(*PC) << " not implemented\n";
       exit(0);
       break;
     }
@@ -170,7 +213,8 @@ public:
 
     for (int addr = la; addr < ha; ++addr) {
       if (!(addr % 32))
-        std::cout << std::endl << h(addr, 4) << ": ";
+        std::cout << std::endl
+                  << h(addr, 4) << ": ";
       if (mem[addr])
         std::cout << h(mem[addr]);
       else
