@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <sstream>
 #include <fstream>
+#include <bitset>
 // using namespace std;
 
 // converse decimal int to hex 00 format string
@@ -25,22 +26,16 @@ enum class addrType {
   IndirectIndexed
 };
 
-class CPU {
-  byte A; // registers
-  byte X;
-  byte Y;
-  byte *mem; // first byte
-  byte *PC;  // program counter
-  byte SP;   // stack pointer
+enum class statusBit { N, V, B, D, I, Z, C };
 
-  // processor status
-  //  bool N; // negative
-  bool V; // overflow
-  bool B; // BRK command
-  bool D; // decimal mode
-  bool I; // IRQ disable
-  bool Z; // zero
-  bool C; // carry
+class CPU {
+  byte A = 0; // registers
+  byte X = 0;
+  byte Y = 0;
+  byte *mem;      // first byte
+  byte *PC;       // program counter
+  byte SP = 0xff; // stack offset
+  byte S = 0;     // processor status
 
   static const unsigned short int memsize = 0x1000; // memory size (bytes)
 
@@ -50,10 +45,9 @@ class CPU {
   static const int prog = 0x0600;
 
 public:
-  CPU() : A(0), X(0), Y(0) {
+  CPU() {
     mem = new byte[memsize];
     PC = mem + prog;
-    SP = 0xff;
     for (int i = 0; i < memsize; ++i)
       mem[i] = 0;
     mem[memsize - 1] = 0xff;
@@ -75,6 +69,7 @@ public:
   }
 
   byte &addr(addrType type) {
+    byte tmp;
     switch (type) {
     case addrType::Immediate:
       return *(++PC);
@@ -93,10 +88,45 @@ public:
     case addrType::Indirect:
       return mem[mem[*(PC + 1)] + 0x0100 * mem[*(PC++ + 1) + 1]];
     case addrType::IndexedIndirect:
-      return mem[mem[*(PC + 1) + X] + 0x0100 * mem[*(PC++ + 1) + X + 1]];
+      return mem[mem[*(PC + 1) + X] + mem[*(++PC) + X + 1] * 0x0100];
     case addrType::IndirectIndexed:
-      return mem[mem[*(PC + 1)] + 0x0100 * mem[*(PC++ + 1) + 1] + Y];
+      return mem[mem[*(PC + 1)] + 0x0100 * mem[*(++PC) + 1] + Y];
     }
+  }
+
+  void setStatus(statusBit bit, bool val) {
+    switch (bit) {
+    case statusBit::C:
+      S = val ? S | 1 : S & ~1;
+      break;
+    case statusBit::Z:
+      S = val ? S | 1 << 1 : S & ~(1 << 1);
+      break;
+    case statusBit::I:
+      S = val ? S | 1 << 2 : S & ~(1 << 2);
+      break;
+    case statusBit::D:
+      S = val ? S | 1 << 3 : S & ~(1 << 3);
+      break;
+    case statusBit::B:
+      S = val ? S | 1 << 4 : S & ~(1 << 4);
+      break;
+    case statusBit::V:
+      S = val ? S | 1 << 6 : S & ~(1 << 6);
+      break;
+    case statusBit::N:
+      S = val ? S | 1 << 7 : S & ~(1 << 7);
+      break;
+    }
+  }
+
+  byte add(byte a, byte b) {
+    byte result = a + b + S & 1;
+    setStatus(statusBit::N, result & 0x80);
+    setStatus(statusBit::C, result < a || result < b);
+    setStatus(statusBit::Z, !result);
+    setStatus(statusBit::V, (a ^ result) & (b ^ result) & 0x80);
+    return result;
   }
 
   int processOpCode() {
@@ -104,27 +134,46 @@ public:
     // LDA - Load the Accumulator
     case 0xa9:
       A = addr(addrType::Immediate);
+      setStatus(statusBit::Z, !A);
       break;
     case 0xa1:
       A = addr(addrType::IndexedIndirect);
+      setStatus(statusBit::Z, !A);
       break;
     case 0xb1:
       A = addr(addrType::IndirectIndexed);
+      setStatus(statusBit::Z, !A);
       break;
-
-    // LDX - Load the X register
-    case 0xa2:
-      X = addr(addrType::Immediate);
+    case 0xa5:
+      A = addr(addrType::ZeroPage);
+      setStatus(statusBit::Z, !A);
       break;
-
-    // LDY - Load the Y register
-    case 0xa0:
-      Y = addr(addrType::Immediate);
+    case 0xb5:
+      A = addr(addrType::ZeroPageX);
+      setStatus(statusBit::Z, !A);
+      break;
+    case 0xad:
+      A = addr(addrType::Absolute);
+      setStatus(statusBit::Z, !A);
+      break;
+    case 0xbd:
+      A = addr(addrType::AbsoluteX);
+      setStatus(statusBit::Z, !A);
+      break;
+    case 0xb9:
+      A = addr(addrType::AbsoluteY);
+      setStatus(statusBit::Z, !A);
       break;
 
     // STA - Store the Accumulator
     case 0x85:
       addr(addrType::ZeroPage) = A;
+      break;
+    case 0x95:
+      addr(addrType::ZeroPageX) = A;
+      break;
+    case 0x9d:
+      addr(addrType::AbsoluteX) = A;
       break;
     case 0x99:
       addr(addrType::AbsoluteY) = A;
@@ -132,57 +181,192 @@ public:
     case 0x8d:
       addr(addrType::Absolute) = A;
       break;
+    case 0x81:
+      addr(addrType::IndexedIndirect) = A;
+      break;
+    case 0x91:
+      addr(addrType::IndirectIndexed) = A;
+      break;
+
+    // LDX - Load the X register
+    case 0xa2:
+      X = addr(addrType::Immediate);
+      setStatus(statusBit::Z, !X);
+      break;
+    case 0xa6:
+      X = addr(addrType::ZeroPage);
+      setStatus(statusBit::Z, !X);
+      break;
+    case 0xae:
+      X = addr(addrType::Absolute);
+      setStatus(statusBit::Z, !X);
+      break;
+    case 0xbe:
+      X = addr(addrType::AbsoluteY);
+      setStatus(statusBit::Z, !X);
+      break;
 
     // STX - Store the X register
+    case 0x86:
+      addr(addrType::ZeroPage) = X;
+      break;
+    case 0x96:
+      addr(addrType::ZeroPageY) = X;
+      break;
     case 0x8e:
       addr(addrType::Absolute) = X;
       break;
 
+    // LDY - Load the Y register
+    case 0xa0:
+      Y = addr(addrType::Immediate);
+      setStatus(statusBit::Z, !Y);
+      break;
+    case 0xa4:
+      Y = addr(addrType::ZeroPage);
+      setStatus(statusBit::Z, !Y);
+      break;
+    case 0xb4:
+      Y = addr(addrType::ZeroPageX);
+      setStatus(statusBit::Z, !Y);
+      break;
+    case 0xac:
+      Y = addr(addrType::Absolute);
+      setStatus(statusBit::Z, !Y);
+      break;
+    case 0xbc:
+      Y = addr(addrType::AbsoluteY);
+      setStatus(statusBit::Z, !Y);
+      break;
+
     // STY - Store the Y register
+    case 0x84:
+      addr(addrType::ZeroPage) = Y;
+      break;
+    case 0x94:
+      addr(addrType::ZeroPageX) = Y;
+      break;
     case 0x8c:
       addr(addrType::Absolute) = Y;
       break;
 
-    // ADC
+    // ADC - Add with Carry
     case 0x69:
-      A += addr(addrType::Immediate);
+      A = add(A, addr(addrType::Immediate));
+      break;
+    case 0x65:
+      A = add(A, addr(addrType::ZeroPage));
+      break;
+    case 0x75:
+      A = add(A, addr(addrType::ZeroPageX));
+      break;
+    case 0x6d:
+      A = add(A, addr(addrType::Absolute));
+      break;
+    case 0x7d:
+      A = add(A, addr(addrType::AbsoluteX));
+      break;
+    case 0x79:
+      A = add(A, addr(addrType::AbsoluteY));
+      break;
+    case 0x61:
+      A = add(A, addr(addrType::IndexedIndirect));
+      break;
+    case 0x71:
+      A = add(A, addr(addrType::IndirectIndexed));
       break;
 
-    case 0x6c: // JMP (little endian)
+    // Status Instructions
+    case 0x18: // CLC
+      setStatus(statusBit::C, 0);
+      break;
+    case 0x38: // SEC
+      setStatus(statusBit::C, 1);
+      break;
+    case 0x58: // CLI
+      setStatus(statusBit::I, 0);
+      break;
+    case 0x78: // SEI
+      setStatus(statusBit::I, 1);
+      break;
+    case 0xd8: // CLD
+      setStatus(statusBit::D, 0);
+      break;
+    case 0xf8: // SED
+      setStatus(statusBit::D, 1);
+      break;
+    case 0xb8: // CLV
+      setStatus(statusBit::V, 0);
+      break;
+
+    // JMP
+    case 0x4c: // absolute
       PC = mem + *(++PC) + *(++PC) * 0x0100 - 1;
       break;
+    case 0x6c: // indirect
+      PC = mem + mem[*(++PC) + *(++PC) * 0x0100] - 1;
+      break;
+
+    // Register instructions
+
     case 0xaa: // TAX
       X = A;
+      setStatus(statusBit::Z, !A);
       break;
-
     case 0x8a: // TXA
       A = X;
+      setStatus(statusBit::Z, !A);
       break;
-    case 0xc9: // CMP
-      Z = A == addr(addrType::Immediate);
+    case 0xa8: // TAY
+      Y = A;
+      setStatus(statusBit::Z, !A);
       break;
-    case 0xca: // DEX
-      --X;
+    case 0x98: // TYA
+      A = Y;
+      setStatus(statusBit::Z, !A);
       break;
-    case 0xd0: // BNE
-      if (!Z)
-        PC += *(PC + 1) < 128 ? *(PC + 1) : *(PC + 1) - 0xff;
-      else
-        ++PC;
-      break;
-    case 0xe0: // CPX
-      Z = X == addr(addrType::Immediate);
-      break;
-    case 0xc0: // CPY
-      Z = Y == addr(addrType::Immediate);
-      break;
-
     case 0xe8: // INX
       ++X;
+      setStatus(statusBit::Z, !X);
+      setStatus(statusBit::N, X & 0x80);
       break;
     case 0xc8: // INY
       ++Y;
+      setStatus(statusBit::Z, !Y);
+      setStatus(statusBit::N, Y & 0x80);
       break;
+    case 0xca: // DEX
+      --X;
+      setStatus(statusBit::Z, !X);
+      setStatus(statusBit::N, X & 0x80);
+      break;
+    case 0x88: // DEY
+      --Y;
+      setStatus(statusBit::Z, !Y);
+      setStatus(statusBit::N, Y & 0x80);
+      break;
+
+    //    case 0xc9: // CMP
+    //      Z = A == addr(addrType::Immediate);
+    //      break;
+    //    case 0xd0: // BNE
+    //      if (!Z)
+    //        PC += *(PC + 1) < 128 ? *(PC + 1) : *(PC + 1) - 0xff;
+    //      else
+    //        ++PC;
+    //      break;
+    //    case 0xe0: // CPX
+    //      Z = X == addr(addrType::Immediate);
+    //      break;
+    //    case 0xc0: // CPY
+    //      Z = Y == addr(addrType::Immediate);
+    //      break;
+
+    // INC - Increment memory
+    //    case 0xfe:
+    //        ++addr(addrType::AbsoluteX);
+    //        break;
+
     case 0x48: // PHA
       mem[stack + SP] = A;
       --SP;
@@ -195,8 +379,7 @@ public:
     case 0x00: // BRK
       return 1;
     default:
-      std::cout << std::endl
-                << h(*PC) << " not implemented\n";
+      std::cout << std::endl << h(*PC) << " not implemented\n";
       exit(0);
       break;
     }
@@ -206,15 +389,18 @@ public:
   void monitorReg() {
     std::cout << "A: $" << h(A) << " X: $" << h(X) << " Y: $" << h(Y)
               << " *PC: $" << h(PC - mem, 4) << " *SP: $" << h(SP)
-              << " Z:" << Z;
+              << " NV-BDIZC: "
+              //              << N << V << "-" << B << D << I << Z << C;
+              << std::bitset<8>(S);
   }
 
   void monitorMem(unsigned short la = 0, unsigned short ha = memsize) {
 
+    std::cout << "\n      00          04          08          0C       0F ";
+    std::cout << "10          14          18          1C       1F";
     for (int addr = la; addr < ha; ++addr) {
       if (!(addr % 32))
-        std::cout << std::endl
-                  << h(addr, 4) << ": ";
+        std::cout << std::endl << h(addr, 4) << ": ";
       if (mem[addr])
         std::cout << h(mem[addr]);
       else
@@ -222,6 +408,72 @@ public:
       std::cout << " ";
     }
     std::cout << std::endl;
+  }
+
+  void termDisplay() {
+    std::cout << "\e[49m|";
+    for (int i = 0; i < 32; ++i)
+      std::cout << "==";
+    std::cout << "\e[49m|\n|";
+    for (auto i = graph; i < graph + 1024; ++i) {
+      switch (mem[i]) {
+      case 0:
+        std::cout << "\e[40m";
+        break;
+      case 1:
+        std::cout << "\e[107m";
+        break;
+      case 2:
+        std::cout << "\e[41m";
+        break;
+      case 3:
+        std::cout << "\e[46m";
+        break;
+      case 4:
+        std::cout << "\e[45m";
+        break;
+      case 5:
+        std::cout << "\e[42m";
+        break;
+      case 6:
+        std::cout << "\e[44m";
+        break;
+      case 7:
+        std::cout << "\e[103m";
+        break;
+      case 8:
+        std::cout << "\e[43m";
+        break;
+      case 9:
+        std::cout << "\e[30m";
+        break;
+      case 10:
+        std::cout << "\e[101m";
+        break;
+      case 11:
+        std::cout << "\e[100m";
+        break;
+      case 12:
+        std::cout << "\e[47m";
+        break;
+      case 13:
+        std::cout << "\e[102m";
+        break;
+      case 14:
+        std::cout << "\e[104m";
+        break;
+      case 15:
+        std::cout << "\e[47m";
+        break;
+      }
+
+      std::cout << "  ";
+      if (!((i + 1) % 32))
+        std::cout << "\e[39m\e[49m|\n|";
+    }
+    for (int i = 0; i < 32; ++i)
+      std::cout << "==";
+    std::cout << "|\n";
   }
 };
 
@@ -232,9 +484,11 @@ int main(int ac, char *av[]) {
     cpu.loadProg(av[1]);
   }
 
-  cpu.monitorReg();
   cpu.start();
+  cpu.monitorReg();
+
   cpu.monitorMem(0x00, 0x200);
   cpu.monitorMem(0x200, 0x300);
+  //  cpu.termDisplay();
   return 0;
 }
