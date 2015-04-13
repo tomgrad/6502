@@ -57,7 +57,7 @@ public:
     std::ifstream file(fn, std::ios::binary);
 
     char *ptr = (char *)(mem + addr);
-    file.read(ptr, 255);
+    file.read(ptr, 64000);
     file.close();
   }
 
@@ -121,7 +121,7 @@ public:
   }
 
   byte add(byte a, byte b) {
-    byte result = a + b + S & 1;
+    byte result = a + b + (S & 1);
     setStatus(statusBit::N, result & 0x80);
     setStatus(statusBit::C, result < a || result < b);
     setStatus(statusBit::Z, !result);
@@ -129,7 +129,26 @@ public:
     return result;
   }
 
+  byte sub(byte a, byte b) {
+    byte result = a - b - 1 + (S & 1);
+    setStatus(statusBit::N, result & 0x80);
+    setStatus(statusBit::C,
+              ~(result > a || result > b)); // not sure about this one
+    setStatus(statusBit::Z, !result);
+    setStatus(statusBit::V,
+              (a ^ result) & (b ^ result) & 0x80); // ...and that one
+    return result;
+  }
+
+  void cmp(byte a, byte b) {
+    setStatus(statusBit::Z, a == b);
+    setStatus(statusBit::C, a >= b);
+    setStatus(statusBit::N, (a - b) & 0x80);
+  }
+
   int processOpCode() {
+    std::cout << h(*PC, 2) << " ";
+    unsigned short tmp;
     switch (*PC) {
     // LDA - Load the Accumulator
     case 0xa9:
@@ -276,6 +295,32 @@ public:
       A = add(A, addr(addrType::IndirectIndexed));
       break;
 
+    // SBC - Subtract with Carry
+    case 0xe9:
+      A = sub(A, addr(addrType::Immediate));
+      break;
+    case 0xe5:
+      A = sub(A, addr(addrType::ZeroPage));
+      break;
+    case 0xf5:
+      A = sub(A, addr(addrType::ZeroPageX));
+      break;
+    case 0xed:
+      A = sub(A, addr(addrType::Absolute));
+      break;
+    case 0xfd:
+      A = sub(A, addr(addrType::AbsoluteX));
+      break;
+    case 0xf9:
+      A = sub(A, addr(addrType::AbsoluteY));
+      break;
+    case 0xe1:
+      A = sub(A, addr(addrType::IndexedIndirect));
+      break;
+    case 0xf1:
+      A = sub(A, addr(addrType::IndirectIndexed));
+      break;
+
     // Status Instructions
     case 0x18: // CLC
       setStatus(statusBit::C, 0);
@@ -346,35 +391,221 @@ public:
       setStatus(statusBit::N, Y & 0x80);
       break;
 
-    //    case 0xc9: // CMP
-    //      Z = A == addr(addrType::Immediate);
-    //      break;
-    //    case 0xd0: // BNE
-    //      if (!Z)
-    //        PC += *(PC + 1) < 128 ? *(PC + 1) : *(PC + 1) - 0xff;
-    //      else
-    //        ++PC;
-    //      break;
-    //    case 0xe0: // CPX
-    //      Z = X == addr(addrType::Immediate);
-    //      break;
-    //    case 0xc0: // CPY
-    //      Z = Y == addr(addrType::Immediate);
-    //      break;
+    // Logical Instructions
+    // AND
+    case 0x29:
+      A &= addr(addrType::Immediate);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x25:
+      A &= addr(addrType::ZeroPage);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x35:
+      A &= addr(addrType::ZeroPageX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x2d:
+      A &= addr(addrType::Absolute);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x3d:
+      A &= addr(addrType::AbsoluteX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x39:
+      A &= addr(addrType::AbsoluteY);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x21:
+      A &= addr(addrType::IndexedIndirect);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x31:
+      A &= addr(addrType::IndirectIndexed);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+
+    // ORA
+    case 0x09:
+      A |= addr(addrType::Immediate);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x05:
+      A |= addr(addrType::ZeroPage);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x15:
+      A |= addr(addrType::ZeroPageX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x0d:
+      A |= addr(addrType::Absolute);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x1d:
+      A |= addr(addrType::AbsoluteX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x19:
+      A |= addr(addrType::AbsoluteY);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x01:
+      A |= addr(addrType::IndexedIndirect);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x11:
+      A |= addr(addrType::IndirectIndexed);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+
+    // EOR
+    case 0x49:
+      A ^= addr(addrType::Immediate);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x45:
+      A ^= addr(addrType::ZeroPage);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x55:
+      A ^= addr(addrType::ZeroPageX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x4d:
+      A ^= addr(addrType::Absolute);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x5d:
+      A ^= addr(addrType::AbsoluteX);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x59:
+      A ^= addr(addrType::AbsoluteY);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x41:
+      A ^= addr(addrType::IndexedIndirect);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+    case 0x51:
+      A ^= addr(addrType::IndirectIndexed);
+      setStatus(statusBit::N, A & 0x80);
+      setStatus(statusBit::Z, !A);
+
+    // CMP
+    case 0xc9:
+      cmp(A, addr(addrType::Immediate));
+      break;
+    case 0xc5:
+      cmp(A, addr(addrType::ZeroPage));
+      break;
+    case 0xd5:
+      cmp(A, addr(addrType::ZeroPageX));
+      break;
+    case 0xcd:
+      cmp(A, addr(addrType::Absolute));
+      break;
+    case 0xdd:
+      cmp(A, addr(addrType::AbsoluteX));
+      break;
+    case 0xd9:
+      cmp(A, addr(addrType::AbsoluteY));
+      break;
+    case 0xc1:
+      cmp(A, addr(addrType::IndexedIndirect));
+      break;
+    case 0xd1:
+      cmp(A, addr(addrType::IndirectIndexed));
+      break;
+
+    // CPX
+    case 0xe0:
+      cmp(X, addr(addrType::Immediate));
+      break;
+    case 0xe4:
+      cmp(X, addr(addrType::ZeroPage));
+      break;
+    case 0xec:
+      cmp(X, addr(addrType::Absolute));
+      break;
+
+    // CPY
+    case 0xc0:
+      cmp(Y, addr(addrType::Immediate));
+      break;
+    case 0xc4:
+      cmp(Y, addr(addrType::ZeroPage));
+      break;
+    case 0xcc:
+      cmp(Y, addr(addrType::Absolute));
+      break;
+
+    // Branch
+    case 0xd0: // BNE
+      if (!(S & 2))
+        PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
+      else
+        ++PC;
+      std::cout << " bne " << h(PC - mem, 4) << std::endl;
+      break;
+
+    case 0xf0: // BEQ
+      if (S & 2)
+        PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
+      else
+        ++PC;
+      break;
 
     // INC - Increment memory
-    //    case 0xfe:
-    //        ++addr(addrType::AbsoluteX);
-    //        break;
+    case 0xe6:
+      tmp = ++addr(addrType::ZeroPage);
+      setStatus(statusBit::Z, !tmp);
+      setStatus(statusBit::N, tmp & 0x80);
+
+      break;
+    case 0xf6:
+      tmp = ++addr(addrType::ZeroPageX);
+      setStatus(statusBit::Z, !tmp);
+      setStatus(statusBit::N, tmp & 0x80);
+      break;
+    case 0xee:
+      tmp = ++addr(addrType::Absolute);
+      setStatus(statusBit::Z, !tmp);
+      setStatus(statusBit::N, tmp & 0x80);
+      break;
+    case 0xfe:
+      tmp = ++addr(addrType::AbsoluteX);
+      setStatus(statusBit::Z, !tmp);
+      setStatus(statusBit::N, tmp & 0x80);
+      break;
+
+    // JSR - Jump to Subroutine
+    case 0x20:
+      std::cout << h(PC - mem, 4) << std::endl;
+      mem[stack + SP--] = (PC - mem + 2) >> 8;
+      mem[stack + SP--] = (PC - mem + 2) & 0x00ff;
+
+      PC = mem + *(++PC) + *(++PC) * 0x0100 - 1;
+      break;
+
+    // RTS - Return from Subroutine
+    case 0x60:
+      PC = mem + mem[stack + SP + 1];
+      mem[stack + ++SP] = 0;
+      PC += 0x0100 * mem[stack + SP + 1];
+      mem[stack + ++SP] = 0;
+      std::cout << h(PC - mem, 4) << std::endl;
+      //          --PC;
+      break;
 
     case 0x48: // PHA
-      mem[stack + SP] = A;
-      --SP;
+      mem[stack + SP--] = A;
       break;
     case 0x68: // PLA
       A = mem[stack + SP + 1];
-      mem[stack + SP] = 0;
-      ++SP;
+      mem[stack + SP++] = 0;
       break;
     case 0x00: // BRK
       return 1;
@@ -487,8 +718,10 @@ int main(int ac, char *av[]) {
   cpu.start();
   cpu.monitorReg();
 
-  cpu.monitorMem(0x00, 0x200);
+  cpu.monitorMem(0x00, 0x100);
   cpu.monitorMem(0x200, 0x300);
-  //  cpu.termDisplay();
+  cpu.monitorMem(0x600, 0x700);
+
+  cpu.termDisplay();
   return 0;
 }
