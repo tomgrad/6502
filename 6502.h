@@ -563,6 +563,15 @@ public:
         ++PC;
       break;
 
+    case 0x10: // BPL - Branch if Positive
+      if (!(S & (1<<7)))
+        PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
+      else
+        ++PC;
+      break;
+
+
+
     // INC - Increment memory
     case 0xe6:
       tmp = ++addr(addrType::ZeroPage);
