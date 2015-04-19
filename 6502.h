@@ -6,16 +6,13 @@
 //#include <fstream>
 //#include <bitset>
 #include <vector>
+#include <random>
 //#include <iostream>
 
 // using namespace std;
 
 // converse decimal int to hex 00 format string
-// std::string h(unsigned short int x, unsigned int w = 2) {
-//  std::stringstream out;
-//  out << std::hex << std::setw(w) << std::setfill('0') << x;
-//  return out.str();
-//}
+std::string h(unsigned short int x, unsigned int w = 2);
 
 typedef unsigned char byte;
 enum class addrType {
@@ -49,6 +46,9 @@ protected:
   int stack = 0x0100;
   int graph = 0x0200; // video device / terminal, ex. 32x32 pix/chars
   static const int prog = 0x0600;
+  std::mt19937 randGen;
+  std::uniform_int_distribution<byte> randByte;
+  bool next = true;
 
 public:
   CPU();
@@ -61,6 +61,7 @@ public:
   byte sub(byte a, byte b);
   void cmp(byte a, byte b);
   int processOpCode();
+  bool debug = false;
 };
 
 #endif

@@ -10,7 +10,7 @@
 // using namespace std;
 
 // converse decimal int to hex 00 format string
-std::string h(unsigned short int x, unsigned int w = 2) {
+std::string h(unsigned short int x, unsigned int w) {
   std::stringstream out;
   out << std::hex << std::setw(w) << std::setfill('0') << x;
   return out.str();
@@ -33,8 +33,13 @@ void CPU::loadProg(char *fn, int addr) {
 }
 
 void CPU::start() {
-  while (!processOpCode() && !(S & 1 << 4)) {
-    ++PC;
+  while (!(S & 0x10)) {
+    if (next) {
+      mem[0xfe] = randByte(randGen);
+      processOpCode();
+      ++PC;
+      next = !debug;
+    }
   }
 }
 
@@ -240,7 +245,7 @@ int CPU::processOpCode() {
     setStatus(statusBit::N, Y & 0x80);
     break;
   case 0xbc:
-    Y = addr(addrType::AbsoluteY);
+    Y = addr(addrType::AbsoluteX);
     setStatus(statusBit::Z, !Y);
     setStatus(statusBit::N, Y & 0x80);
     break;
@@ -344,18 +349,22 @@ int CPU::processOpCode() {
   case 0xaa: // TAX
     X = A;
     setStatus(statusBit::Z, !A);
+    setStatus(statusBit::N, A & 0x80);
     break;
   case 0x8a: // TXA
     A = X;
     setStatus(statusBit::Z, !A);
+    setStatus(statusBit::N, A & 0x80);
     break;
   case 0xa8: // TAY
     Y = A;
     setStatus(statusBit::Z, !A);
+    setStatus(statusBit::N, A & 0x80);
     break;
   case 0x98: // TYA
     A = Y;
     setStatus(statusBit::Z, !A);
+    setStatus(statusBit::N, A & 0x80);
     break;
   case 0xe8: // INX
     ++X;
@@ -384,102 +393,126 @@ int CPU::processOpCode() {
     A &= addr(addrType::Immediate);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x25:
     A &= addr(addrType::ZeroPage);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x35:
     A &= addr(addrType::ZeroPageX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x2d:
     A &= addr(addrType::Absolute);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x3d:
     A &= addr(addrType::AbsoluteX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x39:
     A &= addr(addrType::AbsoluteY);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x21:
     A &= addr(addrType::IndexedIndirect);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x31:
     A &= addr(addrType::IndirectIndexed);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
 
   // ORA
   case 0x09:
     A |= addr(addrType::Immediate);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x05:
     A |= addr(addrType::ZeroPage);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x15:
     A |= addr(addrType::ZeroPageX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x0d:
     A |= addr(addrType::Absolute);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x1d:
     A |= addr(addrType::AbsoluteX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x19:
     A |= addr(addrType::AbsoluteY);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x01:
     A |= addr(addrType::IndexedIndirect);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x11:
     A |= addr(addrType::IndirectIndexed);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
 
   // EOR
   case 0x49:
     A ^= addr(addrType::Immediate);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x45:
     A ^= addr(addrType::ZeroPage);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x55:
     A ^= addr(addrType::ZeroPageX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x4d:
     A ^= addr(addrType::Absolute);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x5d:
     A ^= addr(addrType::AbsoluteX);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x59:
     A ^= addr(addrType::AbsoluteY);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x41:
     A ^= addr(addrType::IndexedIndirect);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
   case 0x51:
     A ^= addr(addrType::IndirectIndexed);
     setStatus(statusBit::N, A & 0x80);
     setStatus(statusBit::Z, !A);
+    break;
 
   // CMP
   case 0xc9:
@@ -598,6 +631,47 @@ int CPU::processOpCode() {
     setStatus(statusBit::N, tmp & 0x80);
     break;
 
+  // ASL - Arithmetic Shift Left
+  case 0x0a:
+    setStatus(statusBit::C, A & 0x80);
+    A <<= 1;
+    setStatus(statusBit::Z, !A);
+    setStatus(statusBit::N, A & 0x80);
+    break;
+
+  // ROR - Rotate Right
+  case 0x66: {
+    byte oldC = S & 1;
+    byte &tmp = addr(addrType::ZeroPage);
+    setStatus(statusBit::C, tmp & 1);
+    tmp >>= 1;
+    tmp |= oldC << 7;
+
+  } break;
+
+  // ROL - Rotate Left
+
+  case 0x2a: {
+    byte oldC = S & 1;
+    setStatus(statusBit::C, A & 0x80);
+    A <<= 1;
+    A |= oldC;
+  }
+    setStatus(statusBit::N, A & 0x80);
+    setStatus(statusBit::Z, !A);
+
+    break;
+
+  case 0x26: {
+    byte oldC = S & 1;
+    byte &tmp = addr(addrType::ZeroPage);
+    setStatus(statusBit::C, tmp & 0x80);
+    tmp <<= 1;
+    tmp |= oldC;
+    setStatus(statusBit::N, tmp & 0x80);
+
+  } break;
+
   // JSR - Jump to Subroutine
   case 0x20:
     //      std::cout << h(PC - mem, 4) << std::endl;
@@ -623,9 +697,33 @@ int CPU::processOpCode() {
     A = mem[stack + SP + 1];
     mem[stack + SP++] = 0;
     break;
+  case 0xea: // NOP - no operation
+    break;
   case 0x00: // BRK
     S |= 1 << 4;
     return 1;
+
+  case 0x02:
+  case 0x03:
+  case 0x04:
+  case 0x07:
+
+  case 0x42:
+  case 0x43:
+  case 0x44:
+
+  case 0x62:
+  case 0x63:
+  case 0x64:
+
+  case 0x80:
+  case 0x82:
+
+  case 0xe7:
+
+    std::cout << std::endl << h(*PC) << " invalid code\n";
+    break;
+
   default:
     std::cout << std::endl << h(*PC) << " not implemented\n";
     exit(0);

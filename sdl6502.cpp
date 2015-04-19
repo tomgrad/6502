@@ -1,11 +1,10 @@
 #include "sdl6502.h"
 #include <iostream>
+#include <bitset>
 
 SDL6502::SDL6502() {
   SDL_Init(SDL_INIT_EVERYTHING);
   atexit(SDL_Quit);
-  //    screen = SDL_SetVideoMode(width, width, 16,
-  //    SDL_HWSURFACE|SDL_DOUBLEBUF);
   window =
       SDL_CreateWindow("6502 emu by tomgrad", SDL_WINDOWPOS_UNDEFINED,
                        SDL_WINDOWPOS_UNDEFINED, width, width, SDL_WINDOW_SHOWN);
@@ -31,11 +30,21 @@ SDL6502::SDL6502() {
               SDL_MapRGB(screen->format, 187, 187, 187)};
 
   done = false;
-  //  , dyn = true, draw = false;
-  //  color = 0, r = 1;
 }
 
 SDL6502::~SDL6502() {}
+
+void SDL6502::sendAscii(SDL_Keysym k) {
+  if (k.sym > 0xff)
+    return;
+  byte ch;
+  if (k.mod == KMOD_LSHIFT || k.mod == KMOD_RSHIFT)
+    ch = k.sym - 32;
+  else
+    ch = k.sym;
+  mem[0xff] = ch;
+  //    std::cout << int(ch) << std::endl;
+}
 
 void SDL6502::ProcessEvents() {
   SDL_Event event;
@@ -45,56 +54,30 @@ void SDL6502::ProcessEvents() {
       done = true;
       break;
     case SDL_KEYDOWN: {
-      if (event.key.keysym.sym == SDLK_ESCAPE)
+      auto &sym = event.key.keysym.sym;
+      sendAscii(event.key.keysym);
+
+      if (sym == SDLK_ESCAPE)
         done = true;
-      //      if (event.key.keysym.sym == SDLK_a)
-      //        dyn = true;
-      //      if (event.key.keysym.sym == SDLK_z)
-      //        dyn = false;
-      //            if (event.key.keysym.sym == SDLK_r)
-      //                Reset();
-      //            if (event.key.keysym.sym == SDLK_0)
-      //                color=0;
-      //            if (event.key.keysym.sym == SDLK_1)
-      //                color=1;
-      //            if (event.key.keysym.sym == SDLK_2)
-      //                color=2;
-      //            if (event.key.keysym.sym == SDLK_3)
-      //                color=3;
-      //            if (event.key.keysym.sym == SDLK_m)
-      //                ++r;
-      //            if (event.key.keysym.sym == SDLK_n)
-      //                --r;
-      //            if (event.key.keysym.sym == SDLK_s)
-      //                setCells(color);
-      //            if (event.key.keysym.sym == SDLK_g)
-      //                setNeigh(0);
-      //            if (event.key.keysym.sym == SDLK_h)
-      //                setNeigh(2);
+      if (sym == SDLK_d)
+
+      {
+        debug = !debug;
+        next = !debug;
+      }
+      if (sym == SDLK_n)
+        next = true;
+      if (sym == SDLK_r)
+        monitorReg();
+      if (sym == SDLK_0)
+        monitorMem(0, 0x0100);
+      if (sym == SDLK_1)
+        monitorMem(0x0100, 0x0200);
+      if (sym == SDLK_2)
+        monitorMem(0x0200, 0x0300);
 
       break;
     }
-      //    case SDL_MOUSEBUTTONDOWN: {
-      //      draw = true;
-      //    }
-
-      //    case SDL_MOUSEMOTION: {
-      //      if (draw) {
-      //        for (int x = -r; x < r + 1; ++x)
-      //          for (int y = -r; y < r + 1; ++y)
-
-      //            setCell((event.motion.x / dx + x + (event.motion.y / dx + y)
-      //            *
-      //            L) %
-      //                        (L * L),
-      //                    color);
-      //      }
-      //      break;
-      //    }
-      //    case SDL_MOUSEBUTTONUP: {
-      //      draw = false;
-      //      break;
-      //    }
     }
   }
 }
@@ -107,13 +90,33 @@ void SDL6502::Refresh() {
   for (int i = 0; i < N; ++i) {
     cell.x = i % L * cell.w;
     cell.y = i / L * cell.h;
-    SDL_FillRect(screen, &cell, colormap[mem[graph + i]]);
+    SDL_FillRect(screen, &cell, colormap[*(mem + graph + i) % 16]);
   }
-  // std::cout << "refresh" << std::endl;
 
   SDL_RenderClear(renderer);
-  //   SDL_RenderCopy(renderer, screen, NULL, NULL);
   SDL_RenderPresent(renderer);
   SDL_UpdateWindowSurface(window);
-  //   SDL_Flip(screen);
+}
+
+void SDL6502::monitorReg() {
+  std::cout << "A: $" << h(A) << " X: $" << h(X) << " Y: $" << h(Y) << " *PC: $"
+            << h(PC - mem, 4) << " *SP: $" << h(SP) << " NV-BDIZC: "
+            //              << N << V << "-" << B << D << I << Z << C;
+            << std::bitset<8>(S) << std::endl;
+}
+
+void SDL6502::monitorMem(unsigned short la, unsigned short ha) {
+
+  std::cout << "\n      00          04          08          0C       0F ";
+  std::cout << "10          14          18          1C       1F";
+  for (int addr = la; addr < ha; ++addr) {
+    if (!(addr % 32))
+      std::cout << std::endl << h(addr, 4) << ": ";
+    if (mem[addr])
+      std::cout << h(mem[addr]);
+    else
+      std::cout << "..";
+    std::cout << " ";
+  }
+  std::cout << std::endl;
 }

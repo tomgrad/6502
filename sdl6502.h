@@ -13,6 +13,8 @@ public:
   void Refresh();
   void ProcessEvents();
   bool IsOpened() { return !done; };
+  void monitorReg();
+  void monitorMem(unsigned short la = 0, unsigned short ha = 0x0100);
 
 protected:
   SDL_Surface *screen;
@@ -26,6 +28,7 @@ protected:
   //  , dyn, draw;
   //  int color, r,
   int dx = 10;
+  void sendAscii(SDL_Keysym);
 };
 
 #endif
