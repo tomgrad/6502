@@ -62,6 +62,7 @@ public:
   void cmp(byte a, byte b);
   int processOpCode();
   bool debug = false;
+  bool isRunning=true;
 };
 
 #endif

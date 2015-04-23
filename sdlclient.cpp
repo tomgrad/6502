@@ -14,7 +14,7 @@ int main(int ac, char *av[]) {
     emu.ProcessEvents();
     emu.Refresh();
   }
-  emu.setStatus(statusBit::B, 1);
+  emu.isRunning=false;
   th.join();
 
   return 0;

@@ -33,7 +33,7 @@ void CPU::loadProg(char *fn, int addr) {
 }
 
 void CPU::start() {
-  while (!(S & 0x10)) {
+  while (isRunning) {
     if (next) {
       mem[0xfe] = randByte(randGen);
       processOpCode();
@@ -700,8 +700,8 @@ int CPU::processOpCode() {
   case 0xea: // NOP - no operation
     break;
   case 0x00: // BRK
-    S |= 1 << 4;
-    return 1;
+isRunning=false;
+      return 1;
 
   case 0x02:
   case 0x03:
