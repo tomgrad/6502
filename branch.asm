@@ -1,31 +1,17 @@
 *= $0600
 
-LDX #$08
+ldx #$5
+ldy #$20
+
 decrement:
 DEX
-STX $0200
-CPX #$03
-BNE decrement
-STX $0201
-clc
-ldx #$00
-lda #$00
-petla:
-adc #$01
-sta $0220,X
-inx
-cpx #$10
-bne petla
+bne decrement
 
-clc
-ldx #$00
-czytaj:
-lda dane,X
-sta $0240,X
-inx
-cpx #$03
-bne czytaj
+dey
+de2:
+bne loop
+brk
 
-BRK
-dane:
-.byt $66,$77,$88
+loop:
+dey
+jmp de2

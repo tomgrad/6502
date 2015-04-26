@@ -1,13 +1,15 @@
-*= $0600
+screen = $0200
 
+*= $0600
 
  ldx #0
  ldy #0
  ;init screen
- lda #0
+ lda #<screen
  sta $0
- lda #2
+ lda #>screen
  sta $1
+ 
 loop:
  lda colors,x
  bpl ok

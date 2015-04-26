@@ -564,26 +564,42 @@ int CPU::processOpCode() {
 
   // Branch
   case 0xd0: // BNE
-    if (!(S & 2))
-      PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
+    if (S & 2)
+        ++PC;
     else
-      ++PC;
-    //      std::cout << " bne " << h(PC - mem, 4) << std::endl;
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     break;
 
   case 0xf0: // BEQ
     if (S & 2)
-      PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
+        PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     else
       ++PC;
     break;
 
   case 0x10: // BPL - Branch if Positive
-    if (!(S & 0x80))
-      PC += *(PC + 1) < 128 ? *(PC + 1) + 1 : *(PC + 1) - 0xff;
-    else
-      ++PC;
+    if (S & 0x80)
+        ++PC;
+else
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     break;
+
+  case 0x30: // BMI - Branch if Minus
+    if (!(S & 0x80))
+        ++PC;
+else
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
+    break;
+
+
+  case 0x90: // BCC
+    if (S & 1)
+        ++PC;
+    else
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
+    break;
+
+
 
   // INC - Increment memory
   case 0xe6:
@@ -638,6 +654,17 @@ int CPU::processOpCode() {
     setStatus(statusBit::Z, !A);
     setStatus(statusBit::N, A & 0x80);
     break;
+
+  case 0x06:
+  {
+      auto& ref = addr(addrType::ZeroPage);
+      setStatus(statusBit::C, ref & 0x80);
+      ref <<= 1;
+      setStatus(statusBit::N, ref & 0x80);
+  }
+      break;
+
+
 
   // ROR - Rotate Right
   case 0x66: {
@@ -697,6 +724,19 @@ int CPU::processOpCode() {
     A = mem[stack + SP + 1];
     mem[stack + SP++] = 0;
     break;
+
+  case 0x08: // PHP
+    mem[stack + SP--] = S;
+    break;
+
+  case 0x28: // PLP
+//  case 0x23: // ???
+
+    S = mem[stack + SP + 1];
+    mem[stack + SP++] = 0;
+    break;
+
+
   case 0xea: // NOP - no operation
     break;
   case 0x00: // BRK
