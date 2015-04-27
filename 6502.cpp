@@ -21,7 +21,6 @@ CPU::CPU() {
   PC = mem + prog;
   for (int i = 0; i < memsize; ++i)
     mem[i] = 0;
-  mem[memsize - 1] = 0xff;
 }
 
 void CPU::loadProg(char *fn, int addr) {

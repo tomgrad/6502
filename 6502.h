@@ -40,7 +40,7 @@ protected:
   byte SP = 0xff; // stack offset
   byte S = 0;     // processor status
 
-  static const unsigned short int memsize = 0x1000; // memory size (bytes)
+  static const unsigned short int memsize = 0xffff; // memory size (bytes)
 
   // memory ranges
   int stack = 0x0100;
