@@ -59,22 +59,47 @@ void SDL6502::ProcessEvents() {
 
       if (sym == SDLK_ESCAPE)
         done = true;
-      if (sym == SDLK_d)
 
+      if (event.key.keysym.mod==KMOD_LCTRL)
       {
-        debug = !debug;
-        next = !debug;
+          switch (sym) {
+          case SDLK_r:
+              monitorReg();
+              break;
+          case SDLK_0:
+              monitorMem(0, 0x0100);
+              break;
+          case SDLK_1:
+              monitorMem(0x0100, 0x0200);
+              break;
+          case SDLK_2:
+              monitorMem(0x0200, 0x0300);
+              break;
+          case SDLK_h:
+              printHelp();
+              break;
+
+          case SDLK_d:
+              debug = !debug;
+              next = !debug;
+              break;
+          case SDLK_n:
+              next = true;
+          case SDLK_j:
+          {
+              int addr;
+              std::cout << "Jump to 0x";
+              std::cin >> std::hex >> addr;
+              PC=mem+addr;
+          }
+              break;
+
+
+          default:
+              break;
+          }
+
       }
-      if (sym == SDLK_n)
-        next = true;
-      if (sym == SDLK_r)
-        monitorReg();
-      if (sym == SDLK_0)
-        monitorMem(0, 0x0100);
-      if (sym == SDLK_1)
-        monitorMem(0x0100, 0x0200);
-      if (sym == SDLK_2)
-        monitorMem(0x0200, 0x0300);
 
       break;
     }
@@ -119,4 +144,11 @@ void SDL6502::monitorMem(unsigned short la, unsigned short ha) {
     std::cout << " ";
   }
   std::cout << std::endl;
+}
+
+void SDL6502::printHelp()
+{
+    std::cout << "^r: registers\t^0: 0-page\t^1: 1-page\t^2: 2-page\n"
+              << "^d: debug mode\t^n: next step\t^j: jump to addr"
+              <<std::endl;
 }

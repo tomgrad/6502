@@ -15,6 +15,7 @@ public:
   bool IsOpened() { return !done; };
   void monitorReg();
   void monitorMem(unsigned short la = 0, unsigned short ha = 0x0100);
+  void printHelp();
 
 protected:
   SDL_Surface *screen;
