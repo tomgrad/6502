@@ -11,3 +11,6 @@ aux_source_directory(. SRC_LIST)
 
 add_executable(6502sdl sdlclient.cpp sdl6502.cpp 6502.cpp)
 target_link_libraries(6502sdl SDL2)
+
+# for msys2:
+# g++ 6502.cpp sdl6502.cpp sdlclient.cpp -o 6502sdl.exe --std=c++11 -lmingw32 -lSDL2main -lSDL2
