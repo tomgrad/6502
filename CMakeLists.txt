@@ -1,6 +1,12 @@
 project(6502)
 cmake_minimum_required(VERSION 2.8)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -pthread")
+
+if(MINGW)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmingw32 -lSDL2main -lSDL2")
+endif(MINGW)
+
+
 aux_source_directory(. SRC_LIST)
 #add_executable(${PROJECT_NAME} ${SRC_LIST})
 
