@@ -1,11 +1,10 @@
 #include "6502.h"
-
-#include <iomanip>
-#include <sstream>
-#include <fstream>
 #include <bitset>
-#include <vector>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
+#include <vector>
 
 // using namespace std;
 
@@ -564,41 +563,38 @@ int CPU::processOpCode() {
   // Branch
   case 0xd0: // BNE
     if (S & 2)
-        ++PC;
+      ++PC;
     else
       PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     break;
 
   case 0xf0: // BEQ
     if (S & 2)
-        PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     else
       ++PC;
     break;
 
   case 0x10: // BPL - Branch if Positive
     if (S & 0x80)
-        ++PC;
-else
+      ++PC;
+    else
       PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     break;
 
   case 0x30: // BMI - Branch if Minus
     if (!(S & 0x80))
-        ++PC;
-else
-      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
-    break;
-
-
-  case 0x90: // BCC
-    if (S & 1)
-        ++PC;
+      ++PC;
     else
       PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
     break;
 
-
+  case 0x90: // BCC
+    if (S & 1)
+      ++PC;
+    else
+      PC += *(PC + 1) & 0x80 ? *(PC + 1) - 0xff : *(PC + 1) + 1;
+    break;
 
   // INC - Increment memory
   case 0xe6:
@@ -654,16 +650,12 @@ else
     setStatus(statusBit::N, A & 0x80);
     break;
 
-  case 0x06:
-  {
-      auto& ref = addr(addrType::ZeroPage);
-      setStatus(statusBit::C, ref & 0x80);
-      ref <<= 1;
-      setStatus(statusBit::N, ref & 0x80);
-  }
-      break;
-
-
+  case 0x06: {
+    auto &ref = addr(addrType::ZeroPage);
+    setStatus(statusBit::C, ref & 0x80);
+    ref <<= 1;
+    setStatus(statusBit::N, ref & 0x80);
+  } break;
 
   // ROR - Rotate Right
   case 0x66: {
@@ -729,18 +721,17 @@ else
     break;
 
   case 0x28: // PLP
-//  case 0x23: // ???
+             //  case 0x23: // ???
 
     S = mem[stack + SP + 1];
     mem[stack + SP++] = 0;
     break;
 
-
   case 0xea: // NOP - no operation
     break;
   case 0x00: // BRK
-isRunning=false;
-      return 1;
+    isRunning = false;
+    return 1;
 
   case 0x02:
   case 0x03:

@@ -1,5 +1,6 @@
 #include "sdl6502.h"
 #include <thread>
+
 int main(int ac, char *av[]) {
   SDL6502 emu;
   if (ac > 1) {
@@ -14,7 +15,7 @@ int main(int ac, char *av[]) {
     emu.ProcessEvents();
     emu.Refresh();
   }
-  emu.isRunning=false;
+  emu.isRunning = false;
   th.join();
 
   return 0;

@@ -1,22 +1,16 @@
 project(6502)
 cmake_minimum_required(VERSION 2.8)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -pthread")
-
-if(MINGW)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lmingw32 -lSDL2main -lSDL2")
-endif(MINGW)
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11")
 
 aux_source_directory(. SRC_LIST)
-#add_executable(${PROJECT_NAME} ${SRC_LIST})
 
-#add_executable(6502 txtclient.cpp)
+add_executable(6502 src/txtclient.cpp src/6502.cpp)
 
-#add_executable(6502ncurses ncursesclient.cpp)
-#target_link_libraries(6502ncurses ncurses)
+add_executable(6502ncurses src/ncursesclient.cpp src/6502.cpp)
+target_link_libraries(6502ncurses ncurses)
 
-add_executable(6502sdl sdlclient.cpp sdl6502.cpp 6502.cpp)
-target_link_libraries(6502sdl SDL2)
+INCLUDE(FindPkgConfig)
+PKG_SEARCH_MODULE(SDL2 REQUIRED sdl2)
 
-# for msys2:
-# g++ 6502.cpp sdl6502.cpp sdlclient.cpp -o 6502sdl.exe --std=c++11 -lmingw32 -lSDL2main -lSDL2
+add_executable(6502sdl src/sdlclient.cpp src/sdl6502.cpp src/6502.cpp)
+target_link_libraries(6502sdl ${SDL2_LIBRARIES})

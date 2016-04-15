@@ -1,5 +1,5 @@
-#include <ncurses.h>
 #include "6502.h"
+#include <ncurses/ncurses.h>
 
 class ncurses6502 : public CPU {
 protected:

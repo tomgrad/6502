@@ -2,14 +2,9 @@
 #define M6502_H
 
 #include <iomanip>
-#include <sstream>
-//#include <fstream>
-//#include <bitset>
-#include <vector>
 #include <random>
-//#include <iostream>
-
-// using namespace std;
+#include <sstream>
+#include <vector>
 
 // converse decimal int to hex 00 format string
 std::string h(unsigned short int x, unsigned int w = 2);
@@ -62,7 +57,7 @@ public:
   void cmp(byte a, byte b);
   int processOpCode();
   bool debug = false;
-  bool isRunning=true;
+  bool isRunning = true;
 };
 
 #endif

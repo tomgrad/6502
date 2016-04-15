@@ -1,4 +1,6 @@
 #include "6502.h"
+#include <bitset>
+#include <iostream>
 #include <thread>
 
 class txt6502 : public CPU {

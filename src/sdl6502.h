@@ -1,9 +1,8 @@
 #ifndef SDL6502_H
 #define SDL6502_H
 
-#include <SDL2/SDL.h>
 #include "6502.h"
-
+#include <SDL2/SDL.h>
 #include <vector>
 
 class SDL6502 : public CPU {
